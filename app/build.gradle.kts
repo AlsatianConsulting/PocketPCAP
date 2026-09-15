@@ -26,10 +26,20 @@ android {
         applicationId = "dev.alsatianconsulting.pocketpcap"
         minSdk = 29
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 2
+        versionName = "0.1.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        // arm64 only, deliberately. The bundled tshark/dumpcap/editcap/mergecap and
+        // their whole shared-object closure are an aarch64 Termux build, so on any
+        // other ABI the app installs and then cannot decode anything - the other ABIs
+        // were never usable, they only arrived as transitive stubs from dependencies.
+        //
+        // It is also what makes the app 16 KB page-size compliant: every arm64 library
+        // here is already built with p_align 16384, but the x86_64 libgojni.so that
+        // came in with the tun2socks AAR is aligned to 4096, and Play rejects that.
+        ndk { abiFilters += "arm64-v8a" }
     }
 
     sourceSets {

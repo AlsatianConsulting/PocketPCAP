@@ -1,5 +1,34 @@
 # Release Notes
 
+## v0.1.1 — 15 September 2026
+
+**Google Play compliance release.** Same features as 0.1.0; the packaging changed.
+
+### 16 KB memory page sizes
+
+Android 15 requires 64-bit native libraries to be aligned for 16 KB memory pages, and
+Play rejected 0.1.0 for it. The bundled arm64 tshark libraries were never the problem —
+all 40 are already built with `p_align` 16384. The violation was `libgojni.so` for
+**x86_64**, pulled in transitively with the tun2socks AAR and aligned to 4096.
+
+PocketPCAP is an arm64 application in practice: the entire bundled tshark/dumpcap/
+editcap/mergecap closure is an aarch64 build, so on any other ABI the app installed and
+then could not decode anything. Those ABIs were never usable — they arrived only as
+dependency stubs. The build now sets `abiFilters = ["arm64-v8a"]`, which:
+
+- makes every native library in the APK 16 KB aligned (42 of 42, verified),
+- removes 18.2 MB from the APK (83.2 MB → 64.1 MB),
+- stops the app installing on devices where it could never have worked.
+
+Verified by reading the ELF program headers of every `.so` in the built APK, and by
+clean-installing on a Pixel 7 (Android 16) where the bundled tshark still executes.
+
+### Also in this release
+
+- 84 JVM unit tests and 13 instrumented tests pass, none skipped; lint reports 0 errors.
+
+---
+
 ## v0.1.0 — 15 September 2026
 
 First public release of PocketPCAP: Wireshark-grade packet capture and analysis on
