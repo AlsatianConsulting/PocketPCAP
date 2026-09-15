@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!--
+      The whole app-private external directory, not each subdirectory in turn:
+      captures/, logs/, objects/ and exports/ are all shareable, and naming them
+      individually meant the analysis-table and map exports under exports/ threw
+      "Failed to find configured root" and were swallowed, so nothing was shared.
+    -->
+    <external-files-path name="app_files" path="." />
+    <!--
+      The operator can point the capture output directory anywhere in shared
+      storage, and merged, sanitised and annotated captures are written there.
+    -->
+    <external-path name="shared_storage" path="." />
+</paths>

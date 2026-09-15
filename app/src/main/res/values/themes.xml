@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Base theme used before Compose takes over the window -->
+    <style name="Theme.PocketPCAP" parent="android:Theme.DeviceDefault.NoActionBar">
+        <item name="android:statusBarColor">#1A120C</item>
+        <item name="android:navigationBarColor">#1A120C</item>
+        <item name="android:windowBackground">#1A120C</item>
+    </style>
+</resources>

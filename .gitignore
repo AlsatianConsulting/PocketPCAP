@@ -1,0 +1,30 @@
+*.iml
+.gradle
+.kotlin
+/local.properties
+/.idea
+.DS_Store
+/build
+/captures
+app/build
+app/release
+*.apk
+*.aab
+
+# Bundled tshark/Wireshark prefix (large binary, regenerate via scripts/build-tshark-bundle.sh)
+app/src/main/assets/tshark-prefix.zip
+/tmp-tshark-build/
+app/src/main/jniLibs/
+__pycache__/
+
+# Device bugreports. Large, and they carry device identifiers, logs and network
+# names that have no business in a repo even by accident.
+bugreport-*.zip
+
+# Signing material. Never commit a keystore or its passwords.
+keystore.properties
+*.jks
+*.keystore
+
+# Staged release artifacts (reproducible from the build).
+/dist
