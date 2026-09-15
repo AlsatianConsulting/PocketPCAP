@@ -28,3 +28,7 @@ keystore.properties
 
 # Staged release artifacts (reproducible from the build).
 /dist
+
+# Staged release artifacts. Published as GitHub release assets, not committed:
+# two ~83 MB binaries per release would bloat the repository permanently.
+/release
