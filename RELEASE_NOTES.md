@@ -1,5 +1,59 @@
 # Release Notes
 
+## v0.1.3 — 15 September 2026
+
+**Rootless capture actually works now.** Three fixes, one of which was breaking the
+device's connectivity whenever a rootless capture was running.
+
+### Rootless VPN capture no longer breaks the network
+
+With a rootless capture running, browsing failed across the device: `ERR_CONNECTION_RESET`
+on TLS, `ERR_QUIC_PROTOCOL_ERROR` on QUIC. The capture dutifully recorded the attempts, so
+it looked like traffic was flowing when nothing was completing.
+
+The cause was IPv6. The tunnel advertised an IPv6 address and a `::/0` route
+unconditionally, so apps inside it resolved AAAA records and tried IPv6 first — and the
+relay then tried to connect over real IPv6 on a network that has none, getting
+`ENETUNREACH` every time. The tunnel now advertises IPv6 only when the underlying network
+carries a genuine global address in `2000::/3`. A router handing out `fd00::` ULAs with no
+upstream IPv6 is the normal home case, and the kernel calls those "scope global", so the
+check tests the prefix rather than trusting `isSiteLocalAddress()`.
+
+Two further relay bugs found alongside it:
+
+- The SOCKS handshake was parsed through a `BufferedInputStream`, and the relay then
+  re-read the socket with a fresh stream — discarding anything the buffer had read ahead.
+  A client that pipelines its first payload behind the SOCKS request, which is what a TLS
+  ClientHello does, had that payload silently dropped.
+- `protect()` was called on a socket with no file descriptor yet, making it a no-op and
+  sending the relay's own connections back into the tunnel it was serving. The socket is
+  now bound first.
+- The UDP relay bound to `127.0.0.1` and then tried to send to real hosts from it, which
+  cannot work. It binds to the wildcard address now.
+
+Measured on the same device and network, before and after: **95 frames / 115 kB of
+unanswered QUIC Initials → 5,056 frames / 5.75 MB** carrying completed TLS sessions and
+QUIC handshakes.
+
+`DirectSocksProxy` also logs its failures now instead of swallowing every exception, which
+is how the IPv6 cause was found at all.
+
+### Foreground service only while capturing
+
+`CaptureService` went into the foreground when the app launched and stayed there with a
+"Ready to capture" notification, whether or not anything was recording — and the rootless
+path started it too, so one capture produced two ongoing notifications from two services,
+one of them idle. Binding no longer implies the foreground; a capture does. Verified on
+device: **0 foreground services at launch, 1 while capturing, 0 after Stop.**
+
+### Verification
+
+84 JVM and 13 instrumented tests pass, none skipped; lint reports 0 errors. Browsing
+through a running rootless capture confirmed working for both TLS and QUIC on a Pixel 7
+running Android 16.
+
+---
+
 ## v0.1.2 — 15 September 2026
 
 **Foreground service type corrected.** Same features as 0.1.1.

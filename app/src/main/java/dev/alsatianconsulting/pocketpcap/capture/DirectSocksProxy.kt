@@ -1,6 +1,7 @@
 package dev.alsatianconsulting.pocketpcap.capture
 
 import android.net.VpnService
+import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.isActive
@@ -21,6 +22,8 @@ class DirectSocksProxy(
     private val scope: CoroutineScope,
     private val recorder: RootlessPacketRecorder,
 ) {
+    private companion object { const val TAG = "DirectSocksProxy" }
+
     private var server: ServerSocket? = null
     private var acceptJob: Job? = null
     private val udpRelays = ConcurrentHashMap<Int, UdpRelay>()
@@ -83,27 +86,54 @@ class DirectSocksProxy(
             val port = readU16(input)
 
             when (command) {
-                0x01 -> handleConnect(socks, output, host, port)
+                0x01 -> handleConnect(socks, input, output, host, port)
                 0x03 -> handleUdpAssociate(socks, input, output)
                 else -> writeReply(output, 0x07, InetAddress.getByName("0.0.0.0"), 0)
             }
         }
     }
 
-    private suspend fun handleConnect(client: Socket, output: java.io.OutputStream, host: String, port: Int) {
+    /**
+     * [clientIn] and [clientOut] are the same streams the SOCKS handshake was read and
+     * written on, and they have to be, because [clientIn] is buffered.
+     *
+     * Calling `client.getInputStream()` again here would hand back a second, empty view
+     * of the socket and silently drop whatever the buffer had already read ahead. A
+     * client that pipelines its first payload behind the SOCKS request - which is what a
+     * TLS ClientHello does - had that payload swallowed, so the connection opened and
+     * then sat there until the peer gave up. Connections whose client happened to wait
+     * for the reply before sending worked, which is why this looked intermittent.
+     */
+    private suspend fun handleConnect(
+        client: Socket,
+        clientIn: java.io.InputStream,
+        clientOut: java.io.OutputStream,
+        host: String,
+        port: Int,
+    ) {
         val remote = Socket()
-        vpnService.protect(remote)
         try {
             remote.tcpNoDelay = true
+            // bind() first so the socket has a real file descriptor: protect() works on
+            // the descriptor, and protecting a socket that has not got one yet is a
+            // no-op, which sends the relay's own connection back into the tunnel it is
+            // serving and the flow collapses.
+            remote.bind(InetSocketAddress(0))
+            if (!vpnService.protect(remote)) Log.w(TAG, "protect() refused the socket for $host:$port")
             remote.connect(InetSocketAddress(host, port), 15_000)
             val remoteAddress = remote.inetAddress
             val flow = recorder.newTcpFlow(remoteAddress, port)
-            writeReply(output, 0x00, InetAddress.getByName("0.0.0.0"), 0)
-            val a = scope.launch { copyTcp(client, remote, flow, fromClient = true) }
-            val b = scope.launch { copyTcp(remote, client, flow, fromClient = false) }
+            writeReply(clientOut, 0x00, InetAddress.getByName("0.0.0.0"), 0)
+            val a = scope.launch {
+                copyTcp(clientIn, remote.getOutputStream(), client, remote, flow, fromClient = true)
+            }
+            val b = scope.launch {
+                copyTcp(remote.getInputStream(), clientOut, remote, client, flow, fromClient = false)
+            }
             joinAll(a, b)
-        } catch (_: Exception) {
-            writeReply(output, 0x01, InetAddress.getByName("0.0.0.0"), 0)
+        } catch (e: Exception) {
+            Log.w(TAG, "connect $host:$port failed: ${e.javaClass.simpleName}: ${e.message}")
+            runCatching { writeReply(clientOut, 0x01, InetAddress.getByName("0.0.0.0"), 0) }
         } finally {
             runCatching { remote.close() }
         }
@@ -131,13 +161,13 @@ class DirectSocksProxy(
     }
 
     private fun copyTcp(
+        input: java.io.InputStream,
+        output: java.io.OutputStream,
         inputSocket: Socket,
         outputSocket: Socket,
         flow: TcpFlow,
         fromClient: Boolean,
     ) {
-        val input = inputSocket.getInputStream()
-        val output = outputSocket.getOutputStream()
         val buf = ByteArray(16 * 1024)
         try {
             while (!inputSocket.isClosed && !outputSocket.isClosed) {
@@ -147,7 +177,8 @@ class DirectSocksProxy(
                 output.flush()
                 recorder.recordTcp(flow, fromClient, buf, n)
             }
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            Log.w(TAG, "relay copy (fromClient=$fromClient) ended: ${e.javaClass.simpleName}: ${e.message}")
         } finally {
             runCatching { outputSocket.shutdownOutput() }
         }
@@ -202,11 +233,26 @@ private class UdpRelay(
     private var job: Job? = null
     private val clients = ConcurrentHashMap<String, InetSocketAddress>()
 
+    /**
+     * Bound to the wildcard address, not to loopback.
+     *
+     * This one socket does two jobs: it receives SOCKS-wrapped datagrams from the local
+     * client over loopback, and it sends the unwrapped payloads on to real hosts and
+     * receives their replies. Bound to 127.0.0.1 it could only ever do the first - every
+     * datagram aimed at the internet left from a loopback source and nothing came back,
+     * which is why every QUIC connection stalled on repeated Initial packets with no
+     * handshake. The client is still identified by its loopback source address below, so
+     * widening the bind does not blur the two directions.
+     *
+     * protect() keeps it off the VPN, so its traffic uses the real network instead of
+     * being routed back into the tunnel it is serving.
+     */
     fun start(): Int {
         val s = DatagramSocket(null)
+        s.reuseAddress = true
+        s.bind(InetSocketAddress(0))
         vpnService.protect(s)
         s.soTimeout = 1000
-        s.bind(InetSocketAddress(InetAddress.getByName("127.0.0.1"), 0))
         socket = s
         job = scope.launch { loop(s) }
         return s.localPort

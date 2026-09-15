@@ -294,7 +294,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun startCapture(ifaces: List<String>, filter: String) {
         val svc = captureService ?: return
         stopRootlessVpn()
-        startService()
+        startCaptureForeground()
         // Switch the packet list back to the live source.
         viewingFile = null
         _viewingFileName.value = null
@@ -316,8 +316,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
      * was dropped rather than shipped behind a declaration unlikely to be approved.
      */
     fun startRootlessVpnCapture(filter: String) {
+        // No CaptureService foreground here: the rootless path runs in
+        // VpnCaptureService. Starting both was why two ongoing notifications appeared
+        // for one capture, one of them from a service that was doing nothing.
         captureService?.captureManager?.stop()
-        startService()
         viewingFile = null
         _viewingFileName.value = null
         filterActive = false
@@ -1488,14 +1490,25 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun clearToolMessage() { _toolMessage.value = null }
 
-    private fun startService() {
-        val intent = Intent(getApplication(), CaptureService::class.java)
+    /**
+     * Ask the capture service for the foreground, which it grants only for a real
+     * capture. Sent as a started command because a bound service may not promote
+     * itself.
+     */
+    private fun startCaptureForeground() {
+        val intent = Intent(getApplication(), CaptureService::class.java).apply {
+            action = CaptureService.ACTION_START_CAPTURE
+        }
         getApplication<Application>().startForegroundService(intent)
     }
 
+    /**
+     * Bind only. Binding used to start the service in the foreground as well, which put
+     * an ongoing notification on screen from app launch with nothing being captured.
+     * BIND_AUTO_CREATE still creates the service, so CaptureManager is reachable.
+     */
     private fun bindService() {
         val intent = Intent(getApplication(), CaptureService::class.java)
-        startService()
         getApplication<Application>().bindService(
             intent, serviceConnection, Context.BIND_AUTO_CREATE
         )

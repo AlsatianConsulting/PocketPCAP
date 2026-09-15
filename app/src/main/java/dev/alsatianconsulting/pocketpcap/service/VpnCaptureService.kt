@@ -5,6 +5,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Intent
+import android.net.ConnectivityManager
 import android.net.VpnService
 import android.os.ParcelFileDescriptor
 import android.util.Log
@@ -121,6 +122,31 @@ class VpnCaptureService : VpnService() {
         super.onTaskRemoved(rootIntent)
     }
 
+    /**
+     * True when the active network carries a globally routable IPv6 address.
+     *
+     * Checked before establish(), while the active network is still the real one rather
+     * than our own tunnel.
+     */
+    private fun underlyingHasIpv6(): Boolean = try {
+        val cm = getSystemService(ConnectivityManager::class.java)
+        val net = cm?.activeNetwork
+        val props = net?.let { cm.getLinkProperties(it) }
+        props?.linkAddresses.orEmpty().any { la ->
+            val a = la.address
+            // Global unicast only, 2000::/3. Not link-local, not loopback, and
+            // specifically not a ULA in fc00::/7: the kernel calls those "scope global"
+            // and Inet6Address.isSiteLocalAddress() does not catch them, since it only
+            // covers the deprecated fec0::/10. A router handing out fd00:: prefixes with
+            // no upstream IPv6 is the normal home case, and treating that as IPv6
+            // connectivity is what broke the tunnel.
+            a is java.net.Inet6Address && (a.address[0].toInt() and 0xE0) == 0x20
+        }
+    } catch (e: Exception) {
+        Log.w(TAG, "Could not inspect the underlying network for IPv6", e)
+        false
+    }
+
     private fun startCapture(filter: String) {
         stopCapture()
         val ts = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
@@ -150,10 +176,20 @@ class VpnCaptureService : VpnService() {
             .addAddress("10.215.0.2", 32)
             .addRoute("0.0.0.0", 0)
 
-        runCatching {
-            builder
-                .addAddress("fd00:215::2", 128)
-                .addRoute("::", 0)
+        // Advertise IPv6 inside the tunnel only when the network underneath actually
+        // has it. Offering it unconditionally made apps resolve AAAA records and try
+        // IPv6 first; the relay then tried to connect over real IPv6 and got ENETUNREACH
+        // on an IPv4-only Wi-Fi, so every connection failed while the capture dutifully
+        // recorded the attempts. Browsing broke for the whole device whenever a rootless
+        // capture was running.
+        if (underlyingHasIpv6()) {
+            runCatching {
+                builder
+                    .addAddress("fd00:215::2", 128)
+                    .addRoute("::", 0)
+            }
+        } else {
+            Log.i(TAG, "No global IPv6 underneath; keeping the tunnel IPv4-only")
         }
 
         // PocketPCAP must never be routed into its own tunnel: the local SOCKS relay

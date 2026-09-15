@@ -11,6 +11,14 @@ import dev.alsatianconsulting.pocketpcap.R
 import dev.alsatianconsulting.pocketpcap.capture.CaptureManager
 import dev.alsatianconsulting.pocketpcap.decode.DecodeManager
 import dev.alsatianconsulting.pocketpcap.model.CaptureState
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
 
 class CaptureService : Service() {
 
@@ -29,11 +37,46 @@ class CaptureService : Service() {
         const val NOTIFICATION_ID = 1001
         const val CHANNEL_ID = "pocketpcap_capture"
         const val ACTION_STOP = "dev.alsatianconsulting.pocketpcap.ACTION_STOP"
+
+        /**
+         * Sent when a capture is about to start, and the only thing that puts this
+         * service in the foreground.
+         */
+        const val ACTION_START_CAPTURE = "dev.alsatianconsulting.pocketpcap.ACTION_START_CAPTURE"
+
+        private val ACTIVE = setOf(
+            CaptureState.STARTING, CaptureState.RUNNING,
+            CaptureState.PAUSED, CaptureState.STOPPING,
+        )
     }
+
+    private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
 
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
+        // Foreground only while a capture is actually recording. The service is also
+        // bound for the whole life of the UI so the ViewModel can reach CaptureManager,
+        // and it used to go foreground for that too - which left an ongoing "Ready to
+        // capture" notification and a foreground service doing nothing, the exact shape
+        // Play objects to. Binding no longer implies the foreground; this does.
+        captureManager.session
+            .map { it?.state in ACTIVE }
+            .distinctUntilChanged()
+            .onEach { active -> if (!active) leaveForeground() }
+            .launchIn(scope)
+    }
+
+    private fun enterForeground() {
+        try {
+            startForeground(NOTIFICATION_ID, buildNotification())
+        } catch (e: Exception) {
+            Log.w(TAG, "Could not enter the foreground", e)
+        }
+    }
+
+    private fun leaveForeground() {
+        runCatching { stopForeground(STOP_FOREGROUND_REMOVE) }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -51,19 +94,21 @@ class CaptureService : Service() {
             stopSelf()
             return START_NOT_STICKY
         }
-        return try {
-            startForeground(NOTIFICATION_ID, buildNotification())
-            START_STICKY
-        } catch (e: Exception) {
-            Log.w(TAG, "Could not enter the foreground; stopping", e)
-            stopSelf()
-            START_NOT_STICKY
+        // Only an explicit capture start earns the foreground. Anything else simply
+        // keeps the service alive for its bound clients, without a notification.
+        // startForeground has to happen here rather than from the session observer:
+        // the caller used startForegroundService(), which gives us about five seconds.
+        if (intent.action == ACTION_START_CAPTURE) {
+            enterForeground()
+            return START_STICKY
         }
+        return START_NOT_STICKY
     }
 
     override fun onBind(intent: Intent): IBinder = binder
 
     override fun onDestroy() {
+        scope.cancel()
         captureManager.onDestroy()
         super.onDestroy()
     }
