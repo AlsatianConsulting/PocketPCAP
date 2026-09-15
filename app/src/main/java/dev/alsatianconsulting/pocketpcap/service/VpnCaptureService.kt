@@ -22,6 +22,7 @@ import dev.alsatianconsulting.pocketpcap.storage.SharedCaptureStore
 import engine.Engine
 import engine.Key
 import go.Seq
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -228,6 +229,12 @@ class VpnCaptureService : VpnService() {
         // Detached, so nothing else will close it: if the engine never takes
         // ownership we have to, or every failed start leaks a descriptor.
         var engineFd = -1
+        // Flipped once Engine.start() returns, from which point Engine.stop() is what
+        // closes the descriptor. Without this, the ordinary stop path closed it twice:
+        // cancelling the job makes delay() throw CancellationException, which *is* an
+        // Exception, so the handler below ran and freed a descriptor the engine already
+        // owned - fdsan saw the double close and aborted the process.
+        var engineOwnsFd = false
         RootlessCaptureStore.setSession(RootlessCaptureStore.session.value?.copy(state = CaptureState.RUNNING))
         updateNotification("Forwarding rootless VPN traffic")
         try {
@@ -249,14 +256,19 @@ class VpnCaptureService : VpnService() {
             }
             Engine.insert(key)
             Engine.start()
+            engineOwnsFd = true
             Log.i(TAG, "tun2socks Engine.start returned; keeping rootless VPN service active")
             while (currentCoroutineContext().isActive) delay(1_000)
+        } catch (e: CancellationException) {
+            // The normal stop path. The engine owns the descriptor and Engine.stop() has
+            // already closed it, so there is nothing to release here.
+            throw e
         } catch (e: Exception) {
             Log.e(TAG, "Rootless tun2socks capture failed", e)
             // The engine never got as far as owning the dup, so close it here.
             // adoptFd takes the raw descriptor back under a ParcelFileDescriptor
             // purely so close() can release it.
-            if (engineFd >= 0) runCatching {
+            if (!engineOwnsFd && engineFd >= 0) runCatching {
                 ParcelFileDescriptor.adoptFd(engineFd).close()
             }
             RootlessCaptureStore.setSession(RootlessCaptureStore.session.value?.copy(state = CaptureState.ERROR))

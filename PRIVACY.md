@@ -73,7 +73,7 @@ covers.
 ### 2. Check for Updates — only when you tap it
 
 **Settings → About → Check for Updates** requests
-`https://api.github.com/repos/AlsatianConsulting/PocketPCAP-dev/releases/latest` and
+`https://api.github.com/repos/AlsatianConsulting/PocketPCAP/releases/latest` and
 compares the version there with the one installed. It sends no capture data and no
 identifiers, and it never downloads or installs anything. It runs only when you tap it.
 

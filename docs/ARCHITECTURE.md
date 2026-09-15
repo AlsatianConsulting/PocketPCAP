@@ -68,7 +68,7 @@ Cache entries are invalidated by capture or decryption-input changes. All execut
 parsing stays off the Compose thread.
 
 `update/UpdateChecker.kt` is isolated from capture analysis. Only an explicit tap in
-the About card performs `GET https://api.github.com/repos/AlsatianConsulting/PocketPCAP-dev/releases/latest`.
+the About card performs `GET https://api.github.com/repos/AlsatianConsulting/PocketPCAP/releases/latest`.
 It compares the returned tag with `BuildConfig.VERSION_NAME`, exposes deterministic
 UI states, and never downloads or installs an artifact.
 

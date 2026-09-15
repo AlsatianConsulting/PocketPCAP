@@ -187,7 +187,7 @@ Settings cover endpoint resolution/display, local discovery, capture directory, 
 
 Rooted capture has two autostop ceilings, **Stop at size** (default 512 MB) and **Stop after** (default off). dumpcap enforces both itself and closes the PCAPNG cleanly when either is reached, so a capture left running cannot fill the device.
 
-The Android version source of truth is `versionName`/`versionCode` in [app/build.gradle.kts](app/build.gradle.kts). The About card reads generated `BuildConfig.VERSION_NAME` from that source and offers an explicit, user-triggered comparison with the latest `AlsatianConsulting/PocketPCAP-dev` GitHub release.
+The Android version source of truth is `versionName`/`versionCode` in [app/build.gradle.kts](app/build.gradle.kts). The About card reads generated `BuildConfig.VERSION_NAME` from that source and offers an explicit, user-triggered comparison with the latest `AlsatianConsulting/PocketPCAP` GitHub release.
 
 ## Data Storage and Exports
 

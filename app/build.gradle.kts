@@ -26,8 +26,8 @@ android {
         applicationId = "dev.alsatianconsulting.pocketpcap"
         minSdk = 29
         targetSdk = 36
-        versionCode = 4
-        versionName = "0.1.3"
+        versionCode = 5
+        versionName = "0.1.4"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 

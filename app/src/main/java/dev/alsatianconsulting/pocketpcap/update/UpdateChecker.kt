@@ -20,7 +20,15 @@ sealed interface UpdateCheckState {
 
 /** Explicit, user-triggered GitHub release lookup. No update data is collected or uploaded. */
 object UpdateChecker {
-    const val REPOSITORY = "AlsatianConsulting/PocketPCAP-dev"
+    /**
+     * The public release repository, not the development one.
+     *
+     * This pointed at AlsatianConsulting/PocketPCAP-dev, which is private and has no
+     * releases, so every Check for Updates failed with "Unable to check for updates" -
+     * and the request leaked the name of a private repository to anyone watching. The
+     * published releases live here.
+     */
+    const val REPOSITORY = "AlsatianConsulting/PocketPCAP"
     const val API_URL = "https://api.github.com/repos/$REPOSITORY/releases/latest"
     const val RELEASE_URL = "https://github.com/$REPOSITORY/releases/latest"
 

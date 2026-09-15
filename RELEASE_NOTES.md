@@ -1,5 +1,50 @@
 # Release Notes
 
+## v0.1.4 — 15 September 2026
+
+Found by a full clean-install QA pass, including installing the app the way Google Play
+actually delivers it — `bundletool` split APKs generated from the AAB rather than the
+monolithic APK.
+
+### Stopping a rootless capture crashed the app
+
+`fdsan: double-close of file descriptor` — SIGABRT, process gone. Stopping the capture
+cancels the tun2socks job, and `delay()` then throws `CancellationException`, which *is*
+an `Exception`; the handler that exists to release the descriptor when the engine never
+took ownership therefore ran on the normal stop path and closed a descriptor the engine
+had already closed. The handler now only releases the descriptor when `Engine.start()`
+never succeeded, and cancellation is no longer treated as a failure.
+
+This is why the app appeared to "go back to the home screen" after stopping a capture: it
+was not navigating, it was dying.
+
+### Check for Updates always failed
+
+The About card queried `AlsatianConsulting/PocketPCAP-dev`, which is private and has no
+releases, so every check reported "Unable to check for updates" — and the request
+disclosed the name of a private repository. It now queries the public release repository,
+where the releases actually are. A unit test pins that and fails if it is ever pointed at
+a `-dev` repository again.
+
+### Verified from a clean install
+
+Installed as three Play-delivered splits (`base-master`, `base-arm64_v8a`, `base-en`) and
+exercised end to end:
+
+- the bundled tshark executes out of the ABI split — the capability check reports it
+  available with no root, which is the whole question for an app that ships executables
+- rootless VPN capture, with browsing working through the tunnel; pause, resume and stop
+- rooted dumpcap capture, start and stop, no stranded processes
+- the analysis workspace: Summary, Conversations, Endpoints, Protocols, Issues, Objects
+- packet list, full dissection tree and hex
+- headers-only PCAPNG export (valid, payloads stripped, headers intact) and CSV export
+- traffic map with live GeoIP lookups
+- settings, decryption, GeoIP import, licences, and the update check
+
+84 JVM and 13 instrumented tests pass, none skipped; lint reports 0 errors.
+
+---
+
 ## v0.1.3 — 15 September 2026
 
 **Rootless capture actually works now.** Three fixes, one of which was breaking the
