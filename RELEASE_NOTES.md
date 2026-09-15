@@ -1,5 +1,32 @@
 # Release Notes
 
+## v0.1.2 — 15 September 2026
+
+**Foreground service type corrected.** Same features as 0.1.1.
+
+Both capture services declared `dataSync`, and that was the wrong type. Google scopes
+`dataSync` to upload/download/backup/sync work, and from Android 15 it carries a six-hour
+daily cap — which would have silently truncated a long capture, the one failure a capture
+tool must not have. Neither service synchronises anything: `CaptureService` runs `dumpcap`
+writing packets to a local file, and `VpnCaptureService` records its own local tunnel.
+
+Both now declare `specialUse` with `PROPERTY_SPECIAL_USE_FGS_SUBTYPE` describing exactly
+what they do, and the permission is `FOREGROUND_SERVICE_SPECIAL_USE` in place of
+`FOREGROUND_SERVICE_DATA_SYNC`.
+
+Verified on a Pixel 7 (Android 16) by running both paths end to end and reading the
+service records back from the system:
+
+- `CaptureService` — `isForeground=true types=0x40000000`, dumpcap capturing to
+  `Documents/pocketpcap`, 59.9 KB written.
+- `VpnCaptureService` — `isForeground=true types=0x40000000`, tunnel established and
+  recording; the capture grew from 4.7 KB to 48.4 KB under traffic.
+
+No foreground-service exceptions in the log on either path. 84 JVM and 13 instrumented
+tests pass, none skipped; lint reports 0 errors.
+
+---
+
 ## v0.1.1 — 15 September 2026
 
 **Google Play compliance release.** Same features as 0.1.0; the packaging changed.

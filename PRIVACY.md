@@ -118,7 +118,7 @@ only on your device. PocketPCAP excludes its own traffic from it.
 | `INTERNET` | The three network features listed above. Not used for anything else. |
 | `ACCESS_NETWORK_STATE`, `ACCESS_WIFI_STATE` | Enumerating network interfaces and their state for the capability check and capture setup |
 | `CHANGE_WIFI_STATE`, `CHANGE_WIFI_MULTICAST_STATE` | Holding a multicast lock so LLMNR/mDNS local name resolution can receive replies |
-| `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_DATA_SYNC` | Keeping a capture running, with a visible notification, while the app is in the background |
+| `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_SPECIAL_USE` | Keeping a capture running, with a visible notification and a stop control, while the app is in the background. Declared as `specialUse` rather than `dataSync` because nothing is synchronised — packets are written to a local file and nothing is transmitted off the device |
 | `POST_NOTIFICATIONS` | The capture notification and its stop control |
 | `BIND_VPN_SERVICE` (via `VpnService`) | Rootless local capture, as described above |
 
