@@ -4,6 +4,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -38,6 +39,7 @@ fun TrafficMapScreen(
     onApplyFilter: (String) -> Unit,
     onBack: () -> Unit,
     onExportMap: (asKml: Boolean) -> Unit = {},
+    onEnableOnlineLookups: () -> Unit = {},
 ) {
     var exportOpen by remember { mutableStateOf(false) }
     var selected by remember(state.routes) { mutableStateOf<TrafficMapRoute?>(state.routes.firstOrNull()) }
@@ -92,6 +94,7 @@ fun TrafficMapScreen(
                 state.loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(color = AcOrange500)
                 }
+                state.consentRequired -> OnlineLookupConsent(onEnable = onEnableOnlineLookups)
                 state.error != null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(state.error, style = MaterialTheme.typography.bodyMedium, color = WarmFgMuted)
                 }
@@ -260,4 +263,55 @@ private fun formatBytesShort(bytes: Long): String {
         i++
     }
     return "%.1f%s".format(v, units[i])
+}
+
+/**
+ * Asked before any address from the capture leaves the device.
+ *
+ * Names the services and says exactly what is sent, because "enable online lookups" on
+ * its own does not tell anyone that addresses out of their own capture are the payload.
+ */
+@Composable
+private fun OnlineLookupConsent(onEnable: () -> Unit) {
+    Column(
+        Modifier.fillMaxSize().padding(24.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        Text(
+            "Placing endpoints on a map needs a lookup",
+            style = MaterialTheme.typography.titleMedium,
+            color = WarmFgPrimary,
+        )
+        Text(
+            "PocketPCAP would send the public IP addresses in this capture, and your own "
+                + "public IP address, to third-party services:",
+            style = MaterialTheme.typography.bodyMedium,
+            color = WarmFgMuted,
+        )
+        Text(
+            "ipwho.is — location for an address\n"
+                + "rdap.org — the organisation an address is registered to\n"
+                + "api.ipify.org — your own public IP address",
+            style = MaterialTheme.typography.bodySmall,
+            color = AcOrange400,
+        )
+        Text(
+            "Those operators will see which public addresses appear in your capture. They "
+                + "never receive the capture itself, its contents, or any private, "
+                + "link-local or multicast address. Nothing else in the app does this, and "
+                + "you can turn it off again in Settings.",
+            style = MaterialTheme.typography.bodySmall,
+            color = WarmFgMuted,
+        )
+        Text(
+            "To keep this offline, import a GeoIP database under Settings instead.",
+            style = MaterialTheme.typography.bodySmall,
+            color = WarmFgMuted,
+        )
+        Button(
+            onClick = onEnable,
+            colors = ButtonDefaults.buttonColors(containerColor = AcOrange500, contentColor = WarmBg900),
+            shape = RoundedCornerShape(10.dp),
+        ) { Text("Allow lookups and continue") }
+    }
 }

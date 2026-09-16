@@ -60,6 +60,8 @@ fun SettingsScreen(
     onWifiEnabledChange: (Boolean) -> Unit = {},
     onChooseOutputDir: (String) -> Unit = {},
     onResetOutputDir: () -> Unit = {},
+    onlineLookups: Boolean = false,
+    onOnlineLookupsChange: (Boolean) -> Unit = {},
     onImportGeoIp: (android.net.Uri) -> Unit = {},
     onClearGeoIp: () -> Unit = {},
     onOpenHelp: () -> Unit = {},
@@ -225,6 +227,18 @@ fun SettingsScreen(
                         Icon(Icons.Default.ChevronRight, null, tint = WarmFgMuted)
                     }
                     SubtleDivider(Modifier.padding(start = 56.dp))
+                    SettingSwitchRow(
+                        icon = Icons.Default.TravelExplore,
+                        label = "Online endpoint lookups",
+                        detail = "Off by default. Sends public IP addresses from your capture, and " +
+                            "your own public IP, to ipwho.is, rdap.org and api.ipify.org so the " +
+                            "traffic map can place them. Those operators see which public addresses " +
+                            "are in your capture; they never receive the capture itself. Private, " +
+                            "link-local and multicast addresses are never sent.",
+                        checked = onlineLookups,
+                        onCheckedChange = onOnlineLookupsChange,
+                    )
+                    SubtleDivider(Modifier.padding(start = 56.dp))
                     Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Default.Language, null, tint = AcOrange400, modifier = Modifier.size(24.dp))
@@ -275,8 +289,20 @@ fun SettingsScreen(
                         value = captureDir.removePrefix("/storage/emulated/0/"),
                     )
                     Text(
-                        "Captures and exports are written here, where the Files app and a " +
-                            "USB connection can both reach them.",
+                        // Only true where the shared folder is actually in use. On
+                        // Android 10 there is no usable path into shared storage, so
+                        // output falls back to app-private storage - which the Files app
+                        // cannot browse, and claiming otherwise sends people looking for
+                        // captures in a folder that does not exist.
+                        if (SharedCaptureStore.available) {
+                            "Captures and exports are written here, where the Files app and a " +
+                                "USB connection can both reach them."
+                        } else {
+                            "Captures and exports are written here. On this version of Android " +
+                                "an app cannot write to shared storage, so this is app-private " +
+                                "storage: use the app's own Files screen, or copy captures off " +
+                                "with the share action."
+                        },
                         style = MaterialTheme.typography.labelSmall,
                         color = WarmFgDisabled,
                         modifier = Modifier.padding(start = 56.dp, end = 16.dp),

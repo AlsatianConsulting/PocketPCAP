@@ -1,5 +1,44 @@
 # Release Notes
 
+## v0.1.5 — 16 September 2026
+
+### Endpoint lookups are now opt-in
+
+The traffic map and endpoint location are the only features that disclose anything derived
+from a capture: they send public IP addresses out of the capture, and the device's own
+public IP, to `ipwho.is`, `rdap.org` and `api.ipify.org`. That is now **off by default**.
+
+The first time a lookup would be needed the app names the three services, says exactly
+what is and is not sent, points out that an imported GeoIP database keeps it offline, and
+asks. There is a matching toggle under **Settings → Online endpoint lookups**.
+
+The gate sits in `LocationLookup` rather than in the UI, so no caller can route around it,
+and a unit test covers consent-withheld with and without offline data. A user who has
+imported a GeoIP database is never prompted, because offline data answers first and the
+prompt only appears when it could not.
+
+### Verified on Android 10
+
+Android 10 is this app's `minSdk` and had never been run on. It now has, on an API 29
+emulator:
+
+- the app launches and the bundled tshark executes — the capability check reports it
+  available with no root
+- storage correctly falls back to app-private external storage, because Android 10 has no
+  usable file path into shared storage; `Documents/pocketpcap` is never created
+- a rootless VPN capture records, writes a valid pcapng there, and stops cleanly with no
+  crash
+
+One bug came out of it: the Settings screen claimed captures were written "where the Files
+app and a USB connection can both reach them" on every version, which is untrue on Android
+10 where the path is app-private. The text now matches what actually happens.
+
+### Verification
+
+87 JVM and 13 instrumented tests pass, none skipped; lint reports 0 errors.
+
+---
+
 ## v0.1.4 — 15 September 2026
 
 Found by a full clean-install QA pass, including installing the app the way Google Play

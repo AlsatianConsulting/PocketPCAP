@@ -260,7 +260,11 @@ Import an offline GeoIP CSV in **Settings → GeoIP** with columns `cidr` or
 `start_ip`/`end_ip`, plus `country`, `country_code`, `region`, `city`, `latitude`,
 `longitude`, `asn`, `org`, `isp`.
 
-> **The Traffic Map is not offline.** Opening it sends your public IP to `api.ipify.org`,
+> **The Traffic Map is off by default.** It is the only feature that discloses anything
+> derived from your capture, so it asks before the first lookup and stays off until you
+> allow it, either in that prompt or under **Settings → Online endpoint lookups**. With
+> it off, only an imported offline GeoIP database is used and nothing leaves the device.
+> Once allowed, opening it sends your public IP to `api.ipify.org`,
 > and for up to 40 endpoints it queries `ipwho.is` for geolocation (when your offline
 > database has no entry) and `rdap.org` for organisation detail (when geolocation did not
 > supply it). Only globally routable unicast addresses are sent — private, loopback,
@@ -321,6 +325,8 @@ user-initiated.
   Preserve raw logs · Stop at size · Stop after.
 - **Name resolution** — Endpoint display · Endpoint aliases.
 - **GeoIP** — import or clear an offline GeoIP CSV.
+- **Online endpoint lookups** — off by default. Lets the traffic map and endpoint
+  location resolve addresses through `ipwho.is`, `rdap.org` and `api.ipify.org`.
 - **Storage** — Capture directory (with Choose folder / Reset) · Max capture file size.
 - **Help & Wiki** — the on-device version of this guide.
 - **Decryption** — TLS key log · 802.11 decryption keys.

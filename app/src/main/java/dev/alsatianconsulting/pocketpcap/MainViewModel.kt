@@ -212,6 +212,22 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val toolMessage: StateFlow<String?> = _toolMessage
 
     // Persisted output directory (where new captures are written).
+    private val _onlineLookups = MutableStateFlow(prefs.onlineLookupsEnabled)
+    val onlineLookups: StateFlow<Boolean> = _onlineLookups
+
+    /**
+     * Turn third-party GeoIP/RDAP lookups on or off. Enabling re-runs whatever the user
+     * was looking at, so the choice takes effect where they made it.
+     */
+    fun setOnlineLookups(enabled: Boolean) {
+        prefs.onlineLookupsEnabled = enabled
+        _onlineLookups.value = enabled
+        if (enabled) {
+            locationCache.clear()
+            if (_trafficMap.value.consentRequired) loadTrafficMap()
+        }
+    }
+
     private val _outputDir = MutableStateFlow(prefs.outputDir)
     val outputDir: StateFlow<String> = _outputDir
 
@@ -462,7 +478,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _endpointLocation.value = EndpointLocation(addr)
         _locationLoading.value = true
         viewModelScope.launch(Dispatchers.IO) {
-            val loc = LocationLookup.lookup(addr, offlineGeo = geoIpManager.lookup(addr))
+            val loc = LocationLookup.lookup(
+                addr,
+                offlineGeo = geoIpManager.lookup(addr),
+                allowOnline = prefs.onlineLookupsEnabled,
+            )
             if (loc.hasAny || loc.isPrivate) locationCache[addr] = loc
             _endpointLocation.value = loc
             _locationLoading.value = false
@@ -495,8 +515,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 _trafficMap.value = TrafficMapState(error = "No endpoints in this capture.")
                 return@launch
             }
-            val publicIp = currentPublicIp()
-            val origin = publicIp?.let { LocationLookup.lookup(it, offlineGeo = geoIpManager.lookup(it)) }
+            val online = prefs.onlineLookupsEnabled
+            val publicIp = if (online) currentPublicIp() else null
+            val origin = publicIp?.let {
+                LocationLookup.lookup(it, offlineGeo = geoIpManager.lookup(it), allowOnline = true)
+            }
             val endpointType = _endpointType.value.uppercase()
             val routes = mutableListOf<TrafficMapRoute>()
             endpointSnapshot
@@ -505,8 +528,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 .take(40)
                 .forEach { endpoint ->
                     val loc = locationCache[endpoint.address]
-                        ?: LocationLookup.lookup(endpoint.address, offlineGeo = geoIpManager.lookup(endpoint.address))
-                            .also { if (it.hasAny || it.isPrivate) locationCache[endpoint.address] = it }
+                        ?: LocationLookup.lookup(
+                            endpoint.address,
+                            offlineGeo = geoIpManager.lookup(endpoint.address),
+                            allowOnline = online,
+                        ).also { if (it.hasAny || it.isPrivate) locationCache[endpoint.address] = it }
                     val lat = loc.latitude
                     val lon = loc.longitude
                     if (lat != null && lon != null) routes += TrafficMapRoute(
@@ -526,13 +552,21 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         longitude = lon,
                     )
                 }
+            // Offline data alone may well be enough; only ask for consent when it was
+            // not, so a user with an imported GeoIP database is never nagged.
+            val needsConsent = routes.isEmpty() && !online
             _trafficMap.value = TrafficMapState(
                 loading = false,
                 sourceAddress = publicIp,
                 sourceLatitude = origin?.latitude,
                 sourceLongitude = origin?.longitude,
                 routes = routes,
-                error = if (routes.isEmpty()) "No public endpoints with GeoIP coordinates found." else null,
+                consentRequired = needsConsent,
+                error = when {
+                    needsConsent -> null
+                    routes.isEmpty() -> "No public endpoints with GeoIP coordinates found."
+                    else -> null
+                },
             )
         }
     }

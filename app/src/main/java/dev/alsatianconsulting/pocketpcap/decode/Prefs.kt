@@ -40,6 +40,18 @@ class Prefs(context: Context) {
         get() = sp.getString(KEY_DISPLAY_MODE, "ADDRESS") ?: "ADDRESS"
         set(value) = sp.edit().putString(KEY_DISPLAY_MODE, value).apply()
 
+    /**
+     * Whether the traffic map and endpoint location may query third-party services.
+     *
+     * Off by default, and deliberately so: those lookups send IP addresses taken from
+     * the user's capture to ipwho.is and rdap.org. That is the only feature in the app
+     * that discloses anything derived from captured traffic, so it is the user's call to
+     * make, not a default to inherit.
+     */
+    var onlineLookupsEnabled: Boolean
+        get() = sp.getBoolean(KEY_ONLINE_LOOKUPS, false)
+        set(value) = sp.edit().putBoolean(KEY_ONLINE_LOOKUPS, value).apply()
+
     /** Whether reverse-DNS / mDNS name resolution is enabled. */
     var resolveHostnames: Boolean
         get() = sp.getBoolean(KEY_RESOLVE_HOSTNAMES, false)
@@ -69,6 +81,7 @@ class Prefs(context: Context) {
         private const val KEY_OUTPUT_DIR = "output_dir"
         private const val KEY_DISPLAY_MODE = "display_mode"
         private const val KEY_RESOLVE_HOSTNAMES = "resolve_hostnames"
+        private const val KEY_ONLINE_LOOKUPS = "online_lookups_enabled"
         private const val KEY_MAX_CAPTURE_MB = "max_capture_mb"
         private const val KEY_MAX_CAPTURE_MINUTES = "max_capture_minutes"
     }

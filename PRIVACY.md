@@ -13,10 +13,11 @@ crash reporting. We do not operate a server for it and we receive nothing from i
 
 Your captures, your analysis, your notes and your decryption keys stay on your device.
 
-Three features do reach the internet, and only when you invoke them. They are listed in
-full under [What leaves your device](#what-leaves-your-device). The most important is the
-**Traffic Map**, which sends IP addresses taken from your capture to third-party lookup
-services. If that matters to you, do not open the Traffic Map.
+Three features can reach the internet, and only when you invoke them. They are listed in
+full under [What leaves your device](#what-leaves-your-device). The one that discloses
+anything derived from your capture — the **Traffic Map** and endpoint location, which send
+IP addresses from the capture to third-party lookup services — is **off by default** and
+asks before its first use.
 
 ---
 
@@ -40,10 +41,18 @@ None of this is sent anywhere by the app. It is yours, on your device.
 
 This is the complete list. Nothing else in the app makes a network request.
 
-### 1. Traffic Map and endpoint location — **third-party lookups**
+### 1. Traffic Map and endpoint location — **off by default, opt-in**
 
-When you open the **Traffic Map**, or look up the location of a single endpoint,
-PocketPCAP makes these requests:
+These lookups are **disabled until you turn them on**. Until you do, nothing derived from
+your capture is sent anywhere: the traffic map uses only a GeoIP database you imported
+yourself, and if it has no answer the map says so rather than reaching out.
+
+The first time a lookup would be needed, the app names the services and what would be
+sent, and asks. You can also turn it on or off at any time under **Settings → Online
+endpoint lookups**.
+
+Once enabled, opening the **Traffic Map** or looking up a single endpoint makes these
+requests:
 
 | Request | Sent to | What is disclosed |
 |---|---|---|
@@ -65,7 +74,8 @@ They do not receive your capture, your packets, or their contents — only the a
 being looked up. These are independent services with their own privacy practices, which we
 do not control.
 
-**To avoid it entirely:** do not open the Traffic Map or the endpoint location screen.
+**To avoid it entirely:** leave **Settings → Online endpoint lookups** off, which is how
+it ships.
 Every other analysis feature works without any network access. Importing an offline GeoIP
 database that carries organisation/ASN detail removes both lookups for addresses it
 covers.

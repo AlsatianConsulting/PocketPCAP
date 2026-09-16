@@ -59,6 +59,7 @@ fun AppNavGraph(viewModel: MainViewModel) {
     val followStream     by viewModel.followStream.collectAsState()
     val followLoading    by viewModel.followLoading.collectAsState()
     val outputDir        by viewModel.outputDir.collectAsState()
+    val onlineLookups    by viewModel.onlineLookups.collectAsState()
     val toolMessage      by viewModel.toolMessage.collectAsState()
     val suggestions      by viewModel.suggestions.collectAsState()
     val recentFilters    by viewModel.recentFilters.collectAsState()
@@ -298,6 +299,8 @@ fun AppNavGraph(viewModel: MainViewModel) {
                     onWifiEnabledChange = { viewModel.setWifiEnabled(it) },
                     onChooseOutputDir  = { viewModel.setOutputDir(it) },
                     onResetOutputDir   = { viewModel.resetOutputDir() },
+                    onlineLookups      = onlineLookups,
+                    onOnlineLookupsChange = { viewModel.setOnlineLookups(it) },
                     onImportGeoIp      = { viewModel.importGeoIpDatabase(it) },
                     onClearGeoIp       = { viewModel.clearGeoIpDatabase() },
                     onOpenHelp         = { navController.navigate("help") },
@@ -363,6 +366,7 @@ fun AppNavGraph(viewModel: MainViewModel) {
                     onExportMap = { asKml ->
                         viewModel.exportTrafficMap(asKml) { f -> shareFile(context, f.absolutePath) }
                     },
+                    onEnableOnlineLookups = { viewModel.setOnlineLookups(true) },
                 )
             }
             composable("objects") {

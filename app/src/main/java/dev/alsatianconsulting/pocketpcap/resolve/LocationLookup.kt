@@ -29,7 +29,19 @@ object LocationLookup {
         geo.org.isNullOrBlank() && geo.asn.isNullOrBlank()
 
     /** Full lookup: merges offline/online GeoIP and RDAP. Safe to call from a background coroutine. */
-    suspend fun lookup(address: String, timeoutMs: Int = 12_000, offlineGeo: EndpointLocation? = null): EndpointLocation =
+    /**
+     * @param allowOnline whether third-party lookups may be used. When false this never
+     *   touches the network: the imported offline database is the only source, so a user
+     *   who has not opted in cannot have addresses from their capture disclosed by any
+     *   path through here. Gated at this level on purpose - a check in the UI could be
+     *   bypassed by a future caller, this cannot.
+     */
+    suspend fun lookup(
+        address: String,
+        timeoutMs: Int = 12_000,
+        offlineGeo: EndpointLocation? = null,
+        allowOnline: Boolean = true,
+    ): EndpointLocation =
         withContext(Dispatchers.IO) {
             val addr = address.trim()
             if (AddressUtil.isPrivateIpv4(addr) || isLocalV6(addr)) {
@@ -40,6 +52,7 @@ object LocationLookup {
             }
             var geo: EndpointLocation? = offlineGeo
             var rdap: EndpointLocation? = null
+            if (!allowOnline) return@withContext geo ?: EndpointLocation(addr)
             if (geo == null) {
                 try { httpGet(GEO_URL + addr, timeoutMs)?.let { geo = parseGeo(addr, it) } }
                 catch (e: Exception) { Log.w(TAG, "geo parse failed for $addr", e) }

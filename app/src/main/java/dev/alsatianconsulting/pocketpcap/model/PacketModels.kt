@@ -153,6 +153,8 @@ data class TrafficMapState(
     val sourceLongitude: Double? = null,
     val routes: List<TrafficMapRoute> = emptyList(),
     val error: String? = null,
+    /** Nothing could be placed and online lookups are off, so the UI offers the choice. */
+    val consentRequired: Boolean = false,
 )
 
 @Immutable
