@@ -32,3 +32,7 @@ keystore.properties
 # Staged release artifacts. Published as GitHub release assets, not committed:
 # two ~83 MB binaries per release would bloat the repository permanently.
 /release
+
+# tun2socks binding, built from source by scripts/build-tun2socks-aar.sh.
+# Large, and reproducible from the pins in tun2socks-bind/go.{mod,sum}.
+app/libs/*.aar

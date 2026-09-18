@@ -26,8 +26,8 @@ android {
         applicationId = "dev.alsatianconsulting.pocketpcap"
         minSdk = 29
         targetSdk = 36
-        versionCode = 6
-        versionName = "0.1.5"
+        versionCode = 7
+        versionName = "0.1.6"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -36,9 +36,10 @@ android {
         // other ABI the app installs and then cannot decode anything - the other ABIs
         // were never usable, they only arrived as transitive stubs from dependencies.
         //
-        // It is also what makes the app 16 KB page-size compliant: every arm64 library
-        // here is already built with p_align 16384, but the x86_64 libgojni.so that
-        // came in with the tun2socks AAR is aligned to 4096, and Play rejects that.
+        // It is also what keeps the app 16 KB page-size compliant: every arm64
+        // library here is built with p_align >= 16384, while the other ABIs only ever
+        // arrived as transitive stubs and the x86_64 libgojni.so among them was
+        // aligned to 4096, which Play rejects.
         ndk { abiFilters += "arm64-v8a" }
     }
 
@@ -175,7 +176,13 @@ dependencies {
     ksp(libs.androidx.room.compiler)
 
     // Rootless VPN pass-through: TUN packets -> local direct SOCKS relay.
-    implementation(libs.tun2socks)
+    //
+    // Built from source by scripts/build-tun2socks-aar.sh, not pulled from Maven.
+    // The prebuilt com.ooimi.library:tun2socks:1.0.4 this replaces was last
+    // published in November 2023 and its libgojni.so records NDK r19c, which Play
+    // rejects as a 16 KB page-size crash risk. The archive is gitignored; run that
+    // script once on a fresh checkout, the same as the tshark bundle.
+    implementation(files("libs/tun2socks.aar"))
 
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)

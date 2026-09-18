@@ -159,8 +159,15 @@ ksp { arg("room.schemaLocation", "$projectDir/schemas") }
   from `SourceManager.installedApps` and includes system apps.
 - All-app capture uses the default VPN app set and excludes PocketPCAP itself to avoid
   routing the UI's own lookups into the local VPN.
-- The service passes the TUN fd to `com.ooimi.library:tun2socks`, points tun2socks at a
-  loopback SOCKS5 listener, and forwards TCP/UDP with protected direct sockets.
+- The service passes the TUN fd to tun2socks, points tun2socks at a loopback SOCKS5
+  listener, and forwards TCP/UDP with protected direct sockets. The binding is
+  `app/libs/tun2socks.aar`, built from source by `scripts/build-tun2socks-aar.sh`
+  against the pins in `tun2socks-bind/go.{mod,sum}`; it replaced the prebuilt
+  `com.ooimi.library:tun2socks:1.0.4`, whose `libgojni.so` records NDK r19c and which
+  Play flags as a 16 KB page-size crash risk. Go calls back into the generated `go.*`
+  and `engine.*` classes by name through JNI, so both the AAR's own `proguard.txt` and
+  `app/proguard-rules.pro` keep them; without that, release builds break at runtime
+  only.
 - `Engine.start()` may return after starting the native loop on some tun2socks builds;
   `VpnCaptureService` keeps the foreground job alive until explicit Stop so the VPN fd,
   SOCKS relay, and pcapng writer are not closed immediately.

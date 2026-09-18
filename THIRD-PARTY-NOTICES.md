@@ -53,7 +53,7 @@ performing the distribution. Contact: <geoff@alsatian.consulting>.
 
 | Component | Version | Licence | Upstream |
 | --- | --- | --- | --- |
-| tun2socks (via `com.ooimi.library:tun2socks`) | 1.0.4 | **GPL-3.0-only** | https://github.com/xjasonlyu/tun2socks |
+| tun2socks (built from source, see `docs/tun2socks-build-manifest.tsv`) | v2.7.0 | **GPL-3.0-only** | https://github.com/xjasonlyu/tun2socks |
 | gVisor `netstack` (vendored inside tun2socks) | bundled | Apache-2.0 | https://github.com/google/gvisor |
 | AndroidX (core, lifecycle, activity, navigation, Room) | see `gradle/libs.versions.toml` | Apache-2.0 | https://developer.android.com/jetpack/androidx |
 | Jetpack Compose + Material 3 | Compose BOM 2024.12.01 | Apache-2.0 | https://developer.android.com/jetpack/compose |

@@ -1,5 +1,42 @@
 # Release Notes
 
+## v0.1.6 — 18 September 2026
+
+### tun2socks is now built from source
+
+Google Play's release dashboard flagged `base/lib/arm64-v8a/libgojni.so` as a crash risk
+on 16 KB page-size devices. Alignment was never the problem; provenance was. That library
+came from the prebuilt `com.ooimi.library:tun2socks:1.0.4` AAR, whose
+`.note.android.ident` records **NDK r19c** — a 2019 toolchain — and Play rejects anything
+below r28. The artifact has had no release since November 2023, so there was no newer
+version to move to.
+
+It is built here now. `scripts/build-tun2socks-aar.sh` runs `gomobile bind` against
+upstream `xjasonlyu/tun2socks` **v2.7.0**, pinned by `tun2socks-bind/go.mod` and `go.sum`
+along with the whole module graph behind it, gVisor's netstack and wireguard-go included.
+The shipped library records **NDK r29**, every LOAD segment is 16 KB aligned, and
+`-trimpath` keeps build-machine paths out of it — the AAR it replaces carried its
+builder's home directory in plain text. It is the same size as before.
+
+Nothing about how the app behaves changed. The generated binding is API-identical, so no
+application code moved. The rootless VPN path was re-checked end to end on a Pixel 7:
+the capture starts, other apps keep working through the tunnel, 153 packets and 128.4 kB
+were recorded, the capture stops cleanly with no fdsan abort, and tshark decodes the
+result.
+
+Because tun2socks is GPL-3.0-only and is linked into the app's own process, that pin is
+also what makes the written source offer in THIRD-PARTY-NOTICES.md answerable: the exact
+sources behind the binary are recorded in this repository, with the toolchain, flags and
+hashes in `docs/tun2socks-build-manifest.tsv`.
+
+Go calls back into the generated `go.*` and `engine.*` classes by name over JNI, so
+`app/proguard-rules.pro` now keeps them explicitly rather than relying on a consumer rule
+from a local archive; a keep rule that silently stopped applying would have broken release
+builds at runtime only.
+
+Building from a fresh checkout now needs Go, `gomobile`/`gobind` and an Android NDK r28 or
+newer, alongside the existing tshark bundle step.
+
 ## v0.1.5 — 16 September 2026
 
 ### Endpoint lookups are now opt-in

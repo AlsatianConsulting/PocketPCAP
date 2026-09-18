@@ -120,11 +120,15 @@ The Gradle build performs resource generation, Kotlin/Compose compilation, Room 
    app/src/main/jniLibs/arm64-v8a/     tshark, dumpcap and their libraries
    app/src/main/assets/tshark-prefix.zip   Wireshark data files
    app/src/main/assets/manuf.bin
+   app/libs/tun2socks.aar              rootless VPN forwarding
    ```
 
-   All three are git-ignored because of their size. Regenerate them with
+   All four are git-ignored because of their size. Regenerate them with
    `scripts/build-tshark-bundle.sh` (which produces both the jniLibs and the data
-   archive) and `scripts/build-oui.sh`.
+   archive), `scripts/build-oui.sh`, and `scripts/build-tun2socks-aar.sh`. The last
+   one needs Go, `gomobile`/`gobind`, and an Android NDK r28 or newer — Google Play
+   rejects native libraries built with anything older as a 16 KB page-size crash
+   risk, which is why the prebuilt tun2socks AAR this replaces could not be used.
 
 4. Remove only cloud-synced duplicate build outputs, then rebuild:
 
@@ -341,6 +345,7 @@ Analysis, capture, aliases, notes, GeoIP data, and decryption material stay on-d
 - Refreshed all README screenshots from the running app on a Pixel 7.
 - Tested on a stock unrooted Android 16 emulator: no crash, rootless capture and file handling work, and decode now explains that it needs root instead of surfacing `Cannot run program "su"` or claiming "No packets captured yet." for a file whose packets it had just counted.
 - The failed `su` probe is now cached, so an unrooted device no longer repeats a ~15 second seven-candidate search on every decode, filter and analysis. A Sources refresh clears it so a device that gains root is picked up without restarting.
+- Replaced the prebuilt `com.ooimi.library:tun2socks` AAR with a build from upstream source. Its `libgojni.so` recorded NDK r19c, which Google Play flags as a 16 KB page-size crash risk, and the artifact has had no release since November 2023. `scripts/build-tun2socks-aar.sh` now builds tun2socks v2.7.0 with Go 1.26 and NDK r29 against pins in `tun2socks-bind/go.{mod,sum}`; the shipped library is 16 KB aligned, carries no build-machine paths, and is the same size as the one it replaces. Verified on the Pixel 7: capture, forwarding, stop and tshark decode all unchanged.
 - **Decoding and analysis no longer need root.** tshark, dumpcap and their shared libraries now ship as `jniLibs` rather than an assets archive, because Android lets an app execute files from its native library directory but never from its own storage. `scripts/jnilib-name.py` renames each file to the `lib*.so` form the installer extracts and rewrites the matching `DT_SONAME`/`DT_NEEDED` entries so the linkage still resolves. Verified on a stock unrooted Android 16 device: whole-capture analysis, packet list, decode tree and hex view all match the rooted device and host Wireshark exactly.
 - Live capture still runs through `su`, and runs a copy of tshark and dumpcap under their real names, because tshark launches dumpcap by looking for that exact filename beside its own binary.
 - Removed rootless capture's per-app scoping and the `QUERY_ALL_PACKAGES` permission it needed. The tunnel is now always device-wide apart from PocketPCAP itself. That permission is a Play restricted permission with no use case covering network analysis.
@@ -373,7 +378,8 @@ See [LICENSE](LICENSE) for the full text.
 
 GPL-3.0 is not a preference here, it is the licence the dependencies require.
 PocketPCAP links tun2socks (GPL-3.0-only) into its own process for rootless VPN
-capture, and ships Wireshark (GPL-2.0-or-later) inside the APK. Every bundled
+capture — built from a pinned upstream tag by `scripts/build-tun2socks-aar.sh` — and
+ships Wireshark (GPL-2.0-or-later) inside the APK. Every bundled
 component, its version and its licence are listed in
 [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md), together with the written offer
 for corresponding source.
